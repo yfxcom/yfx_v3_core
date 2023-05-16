@@ -17,6 +17,7 @@ import "../interfaces/IFundingLogic.sol";
 import "../interfaces/IFastPriceFeed.sol";
 import "../interfaces/IInviteManager.sol";
 import "../interfaces/IMarketLogic.sol";
+import "../interfaces/IRewardRouter.sol";
 
 contract Router {
     using SafeMath for uint256;
@@ -28,6 +29,7 @@ contract Router {
     address riskFunding;
     address inviteManager;
     address marketLogic;
+    address rewardRouter;
 
     //taker => market => orderId[]
     mapping(address => mapping(address => EnumerableSet.UintSet)) internal notExecuteOrderIds; // not executed order ids
@@ -89,12 +91,13 @@ contract Router {
     /// @param _inviteManager invite manager contract address
     /// @param _marketLogic market logic contract address
     /// @param _batchExecuteLimit max batch execute limit
-    function setConfigParams(address _fastPriceFeed, address _riskFunding, address _inviteManager, address _marketLogic, uint256 _batchExecuteLimit) external onlyController {
+    function setConfigParams(address _fastPriceFeed, address _riskFunding, address _inviteManager, address _marketLogic, address _rewardRouter, uint256 _batchExecuteLimit) external onlyController {
         require(_fastPriceFeed != address(0) && _riskFunding != address(0) && _inviteManager != address(0) && _marketLogic != address(0) && _batchExecuteLimit > 0, "Router: error params");
         fastPriceFeed = _fastPriceFeed;
         riskFunding = _riskFunding;
         inviteManager = _inviteManager;
         marketLogic = _marketLogic;
+        rewardRouter = _rewardRouter;
         batchExecuteLimit = _batchExecuteLimit;
         emit SetParams(_fastPriceFeed, _riskFunding, _inviteManager, _marketLogic, _batchExecuteLimit);
     }
@@ -356,7 +359,7 @@ contract Router {
             require(order.taker == msg.sender, "Router: not owner");
             require(order.createTs.add(IManager(manager).cancelElapse()) <= block.timestamp, "Router: can not cancel until deadline");
         }
-        
+
         IMarket(_market).cancel(id);
         if (order.freezeMargin > 0) {
             if (!order.isETH) {
@@ -406,7 +409,7 @@ contract Router {
     /// @param _pool  the pool to add liquidity
     /// @param _amount the amount to add liquidity
     /// @param _deadline the deadline time to add liquidity order
-    function addLiquidityETH(address _pool, uint256 _amount, uint256 _deadline) external payable ensure(_deadline) validatePool(_pool) returns (bool result, uint256 id){
+    function addLiquidityETH(address _pool, uint256 _amount, bool isStakeLp, uint256 _deadline) external payable ensure(_deadline) validatePool(_pool) returns (bool result, uint256 id){
         address baseAsset = IPool(_pool).getBaseAsset();
         require(baseAsset == WETH, "Router: baseAsset is not WETH");
         require(msg.value >= _amount, "Router: insufficient balance");
@@ -417,7 +420,7 @@ contract Router {
         id = _id;
         emit AddLiquidity(_id, _pool, _amount);
 
-        _executeLiquidityOrder(_pool, _id, true);
+        _executeLiquidityOrder(_pool, _id, true, isStakeLp);
     }
 
 
@@ -425,7 +428,7 @@ contract Router {
     /// @param _pool  the pool to add liquidity
     /// @param _amount the amount to add liquidity
     /// @param _deadline the deadline time to add liquidity order
-    function addLiquidity(address _pool, uint256 _amount, uint256 _deadline) external ensure(_deadline) validatePool(_pool) returns (bool result, uint256 id){
+    function addLiquidity(address _pool, uint256 _amount, bool isStakeLp, uint256 _deadline) external ensure(_deadline) validatePool(_pool) returns (bool result, uint256 id){
         address baseAsset = IPool(_pool).getBaseAsset();
         require(IERC20(baseAsset).balanceOf(msg.sender) >= _amount, "Router: insufficient balance");
         require(IERC20(baseAsset).allowance(msg.sender, address(this)) >= _amount, "Router: insufficient allowance");
@@ -436,17 +439,20 @@ contract Router {
 
         emit AddLiquidity(_id, _pool, _amount);
 
-        _executeLiquidityOrder(_pool, _id, false);
+        _executeLiquidityOrder(_pool, _id, false, isStakeLp);
     }
 
     /// @notice execute liquidity orders
     /// @param _pool pool address
     /// @param _id liquidity order id
-    function _executeLiquidityOrder(address _pool, uint256 _id, bool isETH) internal {
+    function _executeLiquidityOrder(address _pool, uint256 _id, bool isETH, bool isStake) internal {
         IPool(_pool).updateBorrowIG();
         PoolDataStructure.MakerOrder memory order = IPool(_pool).getOrder(_id);
         if (order.action == PoolDataStructure.PoolAction.Deposit) {
-            IPool(_pool).executeAddLiquidityOrder(_id);
+            (uint256 liquidity) = IPool(_pool).executeAddLiquidityOrder(_id);
+            if (isStake && rewardRouter != address(0)) {
+                IRewardRouter(rewardRouter).stakeLpForAccount(order.maker, _pool, liquidity);
+            }
             emit ExecuteAddLiquidityOrder(_id, _pool);
         } else {
             IPool(_pool).executeRmLiquidityOrder(_id, isETH);
@@ -460,13 +466,20 @@ contract Router {
     /// @param _deadline deadline time
     /// @return result result of cancel the order
     /// @return id order id for remove liquidity
-    function removeLiquidity(address _pool, uint256 _liquidity, uint256 _deadline) external ensure(_deadline) validatePool(_pool) returns (bool result, uint256 id){
+    function removeLiquidity(address _pool, uint256 _liquidity, bool isUnStake, uint256 _deadline) external ensure(_deadline) validatePool(_pool) returns (bool result, uint256 id){
+        if (isUnStake && rewardRouter != address(0)) {
+            uint256 lpBalance = IERC20(_pool).balanceOf(msg.sender);
+            if (lpBalance < _liquidity) {
+                IRewardRouter(rewardRouter).unstakeLpForAccount(msg.sender, _pool, _liquidity.sub(lpBalance));
+            }
+        }
+
         (uint256 _id, , uint256 _value) = IPool(_pool).removeLiquidity(msg.sender, _liquidity);
         result = true;
         id = _id;
         emit RemoveLiquidity(_id, _pool, _value);
 
-        _executeLiquidityOrder(_pool, _id, false);
+        _executeLiquidityOrder(_pool, _id, false, false);
     }
 
 
@@ -476,15 +489,22 @@ contract Router {
     /// @param _deadline deadline time
     /// @return result result of cancel the order
     /// @return id order id for remove liquidity
-    function removeLiquidityETH(address _pool, uint256 _liquidity, uint256 _deadline) external ensure(_deadline) validatePool(_pool) returns (bool result, uint256 id){
-        address baseAsset = IPool(_pool).getBaseAsset();
-        require(baseAsset == WETH, "Router: baseAsset is not WETH");
+    function removeLiquidityETH(address _pool, uint256 _liquidity, bool isUnStake, uint256 _deadline) external ensure(_deadline) validatePool(_pool) returns (bool result, uint256 id){
+        require(IPool(_pool).getBaseAsset() == WETH, "Router: baseAsset is not WETH");
+
+        if (isUnStake && rewardRouter != address(0)) {
+            uint256 lpBalance = IERC20(_pool).balanceOf(msg.sender);
+            if (lpBalance < _liquidity) {
+                IRewardRouter(rewardRouter).unstakeLpForAccount(msg.sender, _pool, _liquidity.sub(lpBalance));
+            }
+        }
+
         (uint256 _id, , uint256 _value) = IPool(_pool).removeLiquidity(msg.sender, _liquidity);
         result = true;
         id = _id;
         emit RemoveLiquidity(_id, _pool, _value);
 
-        _executeLiquidityOrder(_pool, _id, true);
+        _executeLiquidityOrder(_pool, _id, true, false);
     }
 
     /// @notice set the referral code for the trader
