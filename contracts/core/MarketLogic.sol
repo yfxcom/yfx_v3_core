@@ -546,9 +546,13 @@ contract MarketLogic is IMarketLogic {
             order.orderType = order.triggerPrice > 0 ? MarketDataStructure.OrderType.TriggerOpen : MarketDataStructure.OrderType.Open;
         }
 
-        order.executeFee = params.isLiquidate ? 0 : IManager(manager).executeOrderFee();
-        if (params.isLiquidate) order.orderType = MarketDataStructure.OrderType.Liquidate;
-
+        if (params.isLiquidate) {
+            order.orderType = MarketDataStructure.OrderType.Liquidate;
+            order.executeFee = 0;
+        } else {
+            order.executeFee = IManager(manager).executeOrderFee();
+        }
+        
         return order;
     }
 

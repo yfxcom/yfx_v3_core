@@ -36,9 +36,9 @@ contract PriceHelper {
         }
 
         if (maximise) {
-            return price.mul(RATE_PRECISION + slipPoint).div(RATE_PRECISION);
+            return price.mul(RATE_PRECISION.add(slipPoint)).div(RATE_PRECISION);
         } else {
-            return price.mul(RATE_PRECISION - slipPoint).div(RATE_PRECISION);
+            return price.mul(RATE_PRECISION.sub(slipPoint)).div(RATE_PRECISION);
         }
     }
 }

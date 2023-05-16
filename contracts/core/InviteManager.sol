@@ -18,13 +18,13 @@ contract InviteManager {
         uint256 totalRebate;                                // e.g. 2400 for 24%
         uint256 discountShare;                              // 5000 for 50%/50%, 7000 for 30% rebates/70% discount
     }
-
-    mapping(address => uint256) public referrerTiers;       // link between user <> tier
+    
     mapping(uint256 => Tier) public tiers;                  //level => Tier
 
     struct ReferralCode {
         address owner;
         uint256 registerTs;
+        uint256 tierId;
     }
 
     mapping(bytes32 => ReferralCode) public codeOwners;     //referralCode => owner
@@ -43,7 +43,7 @@ contract InviteManager {
     event RegisterCode(address account, bytes32 code, uint256 time);
     event SetCodeOwner(address account, address newAccount, bytes32 code);
     event SetTier(uint256 tierId, uint256 totalRebate, uint256 discountShare);
-    event SetReferrerTier(address referrer, uint256 tierId);
+    event SetReferrerTier(bytes32 code, uint256 tierId);
     event SetReferrerDiscountShare(address referrer, uint256 discountShare);
     event ClaimInviteToken(address account, uint256 amount);
     event ClaimTradeToken(address account, uint256 amount);
@@ -112,9 +112,9 @@ contract InviteManager {
         emit SetTier(_tierId, _totalRebate, _discountShare);
     }
 
-    function setReferrerTier(address _referrer, uint256 _tierId) external onlyController {
-        referrerTiers[_referrer] = _tierId;
-        emit SetReferrerTier(_referrer, _tierId);
+    function setReferrerTier(bytes32 _code, uint256 _tierId) external onlyController {
+        codeOwners[_code].tierId = _tierId;
+        emit SetReferrerTier(_code, _tierId);
     }
 
     /// @notice set trader referral code, only router can call
@@ -144,6 +144,7 @@ contract InviteManager {
 
         codeOwners[_code].owner = msg.sender;
         codeOwners[_code].registerTs = block.timestamp;
+        codeOwners[_code].tierId = 0;
         emit RegisterCode(msg.sender, _code, codeOwners[_code].registerTs);
     }
 
@@ -189,8 +190,8 @@ contract InviteManager {
         if (_codeOwner == address(0)) {
             return (_code, address(0), 0, 0);
         }
-        _takerDiscountRate = tiers[referrerTiers[_codeOwner]].discountShare;
-        _inviteRate = tiers[referrerTiers[_codeOwner]].totalRebate;
+        _takerDiscountRate = tiers[codeOwners[_code].tierId].discountShare;
+        _inviteRate = tiers[codeOwners[_code].tierId].totalRebate;
     }
 
     function addTradeTokenBalance(address _account, uint256 _amount) internal {

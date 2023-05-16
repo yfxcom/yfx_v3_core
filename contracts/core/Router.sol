@@ -268,9 +268,9 @@ contract Router {
     /// @param to the address to receive the execution fee
     function _executeOrder(MarketDataStructure.Order memory order, address to) internal {
         if (order.status == MarketDataStructure.OrderStatus.Open) {
-            (,uint256 positionId) = IMarket(order.market).executeOrder(order.id);
-            EnumerableSet.remove(notExecuteOrderIds[order.taker][order.market], order.id);
-            if (order.status == MarketDataStructure.OrderStatus.Opened || order.status == MarketDataStructure.OrderStatus.OpenFail) {
+            (int256 resultCode,uint256 positionId) = IMarket(order.market).executeOrder(order.id);
+            if (resultCode == 0) EnumerableSet.remove(notExecuteOrderIds[order.taker][order.market], order.id);
+            if (resultCode == 0 || resultCode == 1) {
                 TransferHelper.safeTransferETH(to, order.executeFee);
             }
             emit Open(order.market, positionId, order.id);

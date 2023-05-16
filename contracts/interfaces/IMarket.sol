@@ -35,7 +35,7 @@ interface IMarket {
 
     function cancel(uint256 _id) external;
 
-    function executeOrder(uint256 _id) external returns (bool, uint256);
+    function executeOrder(uint256 _id) external returns (int256, uint256);
 
     function updateMargin(uint256 _id, uint256 _updateMargin, bool isIncrease) external;
 
