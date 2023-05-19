@@ -17,8 +17,9 @@ contract InviteManager {
     struct Tier {
         uint256 totalRebate;                                // e.g. 2400 for 24%
         uint256 discountShare;                              // 5000 for 50%/50%, 7000 for 30% rebates/70% discount
+        uint256 upgradeTradeAmount;                         //upgrade trade amount
     }
-    
+
     mapping(uint256 => Tier) public tiers;                  //level => Tier
 
     struct ReferralCode {
@@ -30,6 +31,7 @@ contract InviteManager {
     mapping(bytes32 => ReferralCode) public codeOwners;     //referralCode => owner
     mapping(address => bytes32) public traderReferralCodes; //account => referralCode
 
+    address public upgradeToken;
     address public tradeToken;
     address public inviteToken;
     uint256 public tradeTokenDecimals;
@@ -42,13 +44,14 @@ contract InviteManager {
     event SetTraderReferralCode(address account, bytes32 code);
     event RegisterCode(address account, bytes32 code, uint256 time);
     event SetCodeOwner(address account, address newAccount, bytes32 code);
-    event SetTier(uint256 tierId, uint256 totalRebate, uint256 discountShare);
+    event SetTier(uint256 tierId, uint256 totalRebate, uint256 discountShare, uint256 upgradeTradeAmount);
     event SetReferrerTier(bytes32 code, uint256 tierId);
     event SetReferrerDiscountShare(address referrer, uint256 discountShare);
     event ClaimInviteToken(address account, uint256 amount);
     event ClaimTradeToken(address account, uint256 amount);
     event AddTradeTokenBalance(address account, uint256 amount);
     event AddInviteTokenBalance(address account, uint256 amount);
+    event SetUpgradeToken(address token);
     event SetTradeToken(address tradeToken, uint256 decimals);
     event SetInviteToken(address inviteToken, uint256 decimals);
     event UpdateTradeValue(address account, uint256 value);
@@ -89,6 +92,11 @@ contract InviteManager {
         emit IsURPPausedSettled(_isURPPaused);
     }
 
+    function setUpgradeToken(address _token) external onlyController {
+        upgradeToken = _token;
+        emit SetUpgradeToken(_token);
+    }
+
     function setTradeToken(address _tradeToken) external onlyController {
         tradeToken = _tradeToken;
         tradeTokenDecimals = IERC20(_tradeToken).decimals();
@@ -101,21 +109,36 @@ contract InviteManager {
         emit SetInviteToken(_inviteToken, inviteTokenDecimals);
     }
 
-    function setTier(uint256 _tierId, uint256 _totalRebate, uint256 _discountShare) external onlyController {
+    function setTier(uint256 _tierId, uint256 _totalRebate, uint256 _discountShare, uint256 _upgradeTradeAmount) external onlyController {
         require(_totalRebate <= RATE_PRECISION, "InviteManager: invalid totalRebate");
         require(_discountShare <= RATE_PRECISION, "InviteManager: invalid discountShare");
 
         Tier memory tier = tiers[_tierId];
         tier.totalRebate = _totalRebate;
         tier.discountShare = _discountShare;
+        tier.upgradeTradeAmount = _upgradeTradeAmount;
         tiers[_tierId] = tier;
-        emit SetTier(_tierId, _totalRebate, _discountShare);
+        emit SetTier(_tierId, _totalRebate, _discountShare, _upgradeTradeAmount);
     }
 
     function setReferrerTier(bytes32 _code, uint256 _tierId) external onlyController {
         codeOwners[_code].tierId = _tierId;
         emit SetReferrerTier(_code, _tierId);
     }
+
+    function upgradeReferrerTierByOwner(bytes32 _code) external {
+        require(codeOwners[_code].owner == msg.sender, "InviteManager: invalid owner");
+        require(IERC20(upgradeToken).balanceOf(msg.sender) >= tiers[codeOwners[_code].tierId].upgradeTradeAmount, "InviteManager: insufficient balance");
+
+        IERC20(upgradeToken).transferFrom(msg.sender, address(0x000000000000000000000000000000000000dEaD), tiers[codeOwners[_code].tierId].upgradeTradeAmount);
+
+        uint256 _tierId = codeOwners[_code].tierId.add(1);
+        require(tiers[_tierId].totalRebate > 0, "InviteManager: invalid tierId");
+
+        codeOwners[_code].tierId = _tierId;
+        emit SetReferrerTier(_code, _tierId);
+    }
+
 
     /// @notice set trader referral code, only router can call
     /// @param _account account address

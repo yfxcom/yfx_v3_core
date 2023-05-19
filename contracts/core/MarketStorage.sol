@@ -19,7 +19,7 @@ contract MarketStorage {
 
     uint256 public positionID;//positionID
     uint256 public orderID;//orderID
-    uint256 public triggerOrderID = type(uint32).max;//fundingID
+    uint256 public triggerOrderID = type(uint128).max;  //trigger Order ID
     //taker => key => positionID
     mapping(address => mapping(MarketDataStructure.PositionKey => uint256)) internal takerPositionList;//key: short;long;cross
     //taker => orderID[]
