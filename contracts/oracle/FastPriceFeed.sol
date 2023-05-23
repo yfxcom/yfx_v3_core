@@ -44,12 +44,12 @@ contract FastPriceFeed {
     uint256 public maxDeviationBasisPoints;
     //max diff between chainLink price and offChain price,if diff > maxDeviationBasisPoints then use chainLink price 
     uint256 public indexMaxDeviationBasisPoints;
-    uint256 public priceDuration;//offChain validity period tradePrice,if delay > priceDuration then use chainLink price with 2%。spreadBasisPoints 
+    uint256 public priceDuration;//offChain validity period tradePrice,if delay > priceDuration then use chainLink price with 0.2% spreadBasisPoints 
     uint256 public indexPriceDuration;//offChain validity period for indexPrice
     //max offChain price update delay,if delay > maxPriceUpdateDelay then use chainLink price with 5% spreadBasisPoints 
     uint256 public maxPriceUpdateDelay;
-    uint256 public spreadBasisPointsIfInactive = 500;
-    uint256 public spreadBasisPointsIfChainError = 20;
+    uint256 public spreadBasisPointsIfInactive = 20;
+    uint256 public spreadBasisPointsIfChainError = 500;
     uint256 public minBlockInterval; //min block interval between two offChain price update
     uint256 public maxTimeDeviation = 3600;//max time deviation between offChain price update time and block timestamp
     uint256 public priceDataInterval = 60;//cumulative delta interval

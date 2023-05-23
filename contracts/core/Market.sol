@@ -86,7 +86,7 @@ contract Market is MarketStorage, ReentrancyGuard {
     ) external onlyController {
         require(_marketLogic != address(0), "Market: invalid market logic contract address");
         if (fundingLogic != address(0)) {
-            require(fundingLogic != address(0), "Market: invalid funding logic contract address");
+            require(_fundingLogic != address(0), "Market: invalid funding logic contract address");
         }
         marketLogic = _marketLogic;
         fundingLogic = _fundingLogic;
@@ -148,9 +148,9 @@ contract Market is MarketStorage, ReentrancyGuard {
 
     /// @notice execute an order
     /// @param _id order id
-    /// @return isSuccess execute result
+    /// @return resultCode execute result 0：open success；1:order open fail；2:trigger order open fail
     /// @return _positionId position id
-    function executeOrder(uint256 _id) external nonReentrant onlyRouter returns (bool isSuccess, uint256 _positionId) {
+    function executeOrder(uint256 _id) external nonReentrant onlyRouter returns (int256 resultCode, uint256 _positionId) {
         ExecuteOrderInternalParams memory params;
         params.order = orders[_id];
         //freezeMargin > 0 ,order type is open and position direction is same as order direction;freezeMargin = 0,order type is close and position direction is neg of order direction
@@ -186,9 +186,12 @@ contract Market is MarketStorage, ReentrancyGuard {
         }
         (params.order, params.position, params.response, params.errorCode) = IMarketLogic(marketLogic).trade(_id, _positionId, params.discountRate, params.inviteRate);
         if (params.errorCode != 0) {
-            if (params.errorCode != 5) orders[_id].status = MarketDataStructure.OrderStatus.OpenFail;
             emit ExecuteOrderError(_id, params.errorCode);
-            return (false, _positionId);
+            if (params.errorCode == 5) {
+                return (2, _positionId);
+            }
+            orders[_id].status = MarketDataStructure.OrderStatus.OpenFail;
+            return (1, _positionId);
         }
 
         params.order.code = params.code;
@@ -287,7 +290,7 @@ contract Market is MarketStorage, ReentrancyGuard {
         orders[_id] = params.order;
         takerPositions[_positionId] = params.position;
 
-        return (true, _positionId);
+        return (0, _positionId);
     }
 
     struct LiquidateInternalParams {

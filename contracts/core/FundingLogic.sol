@@ -88,7 +88,6 @@ contract FundingLogic is IFundingLogic {
 
         params.deltaTs = block.timestamp - params.lastFrX96Ts;
         if (block.timestamp != params.lastFrX96Ts && params.lastFrX96Ts != 0) {
-            params.deltaX96;
             if (params.longValue.add(params.shortValue) != 0) {
                 //(longValue - shortValue) / marketBorrowMax * fundingRateMax
                 int256 longShortDeltaValue = params.longValue.toInt256().sub(params.shortValue.toInt256());
