@@ -49,7 +49,7 @@ contract PoolStorage {
     struct MarketConfig {
         uint256 marketType;
         uint256 fundUtRateLimit;                               // fund utilization ratio limit, 0: cant't open; example 200000  r = fundUtRateLimit/RATE_PRECISION=0.2
-        uint256 openLimit;                                      // 0: no limit; > 0 limit is min(openLimit, fundUtRateLimit * balance)
+        uint256 openLimit;                                      // fund utilization limit, used with fundUtRateLimit, the final fund limit is min(openLimit, fundUtRateLimit * balance)
     }
 
     struct DataByMarket {
