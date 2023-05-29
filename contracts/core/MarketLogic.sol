@@ -80,8 +80,8 @@ contract MarketLogic is IMarketLogic {
         iParams.marketConfig = IMarket(msg.sender).getMarketConfig();
         iParams.marketType = IMarket(msg.sender).marketType();
         iParams.pool = IMarket(msg.sender).pool();
-        iParams.positionMode = IMarket(msg.sender).positionModes(order.taker);
         order = IMarket(msg.sender).getOrder(id);
+        iParams.positionMode = IMarket(msg.sender).positionModes(order.taker);
         position = IMarket(msg.sender).getPosition(positionId);
 
         if (order.id == 0 || order.status != MarketDataStructure.OrderStatus.Open) return (order, position, response, 2);
