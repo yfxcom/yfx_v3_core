@@ -144,6 +144,9 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         _transfer(params.taker, params.toTaker, params.isOutETH);
         _transfer(params.inviter, params.feeToInviter, baseAsset == WETH);
         _transfer(IManager(manager).riskFunding(), params.toRiskFund, params.isOutETH);
+        
+        emit PoolSettledFundingPaymentAndInterestInfo(address(this),params.fundingPayment,params.payInterest);
+        
         return true;
     }
 

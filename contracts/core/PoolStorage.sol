@@ -73,6 +73,6 @@ contract PoolStorage {
     event SetRemoveLiquidityFeeRatio(uint256 feeRate);
     event SetPaused(bool addPaused, bool removePaused);
     event SetInterestLogic(address interestLogic);
-   // event SetValidationLogic(address validationLogic);
     event SetMarketPriceFeed(address marketPriceFeed);
+    event PoolSettledFundingPaymentAndInterestInfo(address pool, int256 fundingPayment, uint256 interest);
 }
