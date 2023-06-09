@@ -43,13 +43,13 @@ contract PoolStorage {
     mapping(address => uint256) public freezeBalanceOf;         // frozen liquidity amount when removing
     mapping(address => MarketConfig) public marketConfigs;      // mapping of market configs
     mapping(address => DataByMarket) public poolDataByMarkets;  // mapping of market data
-    mapping(int8 => IPool.InterestData) public interestDate;    // mapping of interest data for position directions (long or short)
+    mapping(int8 => IPool.InterestData) public interestData;    // mapping of interest data for position directions (long or short)
 
     //structs
     struct MarketConfig {
         uint256 marketType;
-        uint256 fundUtRateLimit;                               // fund utilization ratio limit, 0: cant't open; example 200000  r = fundUtRateLimit/RATE_PRECISION=0.2
-        uint256 openLimit;                                      // 0: no limit; > 0 limit is min(openLimit, fundUtRateLimit * balance)
+        uint256 fundUtRateLimit;                                // fund utilization ratio limit, 0: cant't open; example 200000  r = fundUtRateLimit/RATE_PRECISION=0.2
+        uint256 openLimit;                                      // 0: 0 authorized credit limit; > 0 limit is min(openLimit, fundUtRateLimit * balance)
     }
 
     struct DataByMarket {
@@ -73,6 +73,6 @@ contract PoolStorage {
     event SetRemoveLiquidityFeeRatio(uint256 feeRate);
     event SetPaused(bool addPaused, bool removePaused);
     event SetInterestLogic(address interestLogic);
-    event SetValidationLogic(address validationLogic);
+   // event SetValidationLogic(address validationLogic);
     event SetMarketPriceFeed(address marketPriceFeed);
 }

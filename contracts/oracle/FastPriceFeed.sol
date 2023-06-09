@@ -69,7 +69,6 @@ contract FastPriceFeed {
     event SetMaxPriceUpdateDelay(uint256 _maxPriceUpdateDelay);
     event SetMinBlockInterval(uint256 _minBlockInterval);
     event SetMaxDeviationBasisPoints(uint256 _maxDeviationBasisPoints);
-    event SetIndexMaxDeviationBasisPoints(uint256 _indexMaxDeviationBasisPoints);
     event SetSpreadBasisPointsIfInactive(uint256 _spreadBasisPointsIfInactive);
     event SetSpreadBasisPointsIfChainError(uint256 _spreadBasisPointsIfChainError);
     event SetPriceDataInterval(uint256 _priceDataInterval);
@@ -100,6 +99,7 @@ contract FastPriceFeed {
     ) {
         require(_priceDuration <= MAX_PRICE_DURATION, "FastPriceFeed: invalid _priceDuration");
         require(_indexPriceDuration <= MAX_PRICE_DURATION, "FastPriceFeed: invalid _indexPriceDuration");
+        require(manager != address(0), "FastPriceFeed: invalid manager");
         manager = _manager;
         priceDuration = _priceDuration;
         maxPriceUpdateDelay = _maxPriceUpdateDelay;
@@ -110,6 +110,7 @@ contract FastPriceFeed {
     }
 
     function setMarketPriceFeed(address _marketPriceFeed) external onlyController {
+        require(_marketPriceFeed != address(0), "FastPriceFeed: invalid _marketPriceFeed");
         marketPriceFeed = _marketPriceFeed;
         emit SetMarketPriceFeed(_marketPriceFeed);
     }

@@ -14,6 +14,7 @@ contract PriceHelper {
     event MaxSlipPointSettled(uint256 maxSlipPoint);
 
     constructor(address _manager) {
+        require(_manager != address(0), "PriceHelper: invalid manager");
         manager = _manager;
     }
 

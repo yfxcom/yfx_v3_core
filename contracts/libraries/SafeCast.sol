@@ -191,4 +191,23 @@ library SafeCast {
         require(value < 2**255, "SafeCast: value doesn't fit in an int256");
         return int256(value);
     }
+
+    /**
+     * @dev Returns the downcasted uint80 from uint256, reverting on
+     * overflow (when the input is greater than largest uint80).
+     *
+     * copy from openzeppelin-contracts
+     *
+     * Counterpart to Solidity's `uint80` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 80 bits
+     *
+     * _Available since v4.7._
+     */
+    function toUint80(uint256 value) internal pure returns (uint80) {
+        require(value <= type(uint80).max, "SafeCast: value doesn't fit in 80 bits");
+        return uint80(value);
+    }
 }

@@ -29,11 +29,13 @@ contract MarketLogic is IMarketLogic {
     event UpdateMarketPriceFeed(address marketPriceFeed);
 
     constructor(address _manager) {
+        require(_manager != address(0), "MarketLogic: manager is zero address");
         manager = _manager;
     }
 
     function updateMarketPriceFeed(address _marketPriceFeed) external {
         require(IManager(manager).checkController(msg.sender), "MarketLogic: !controller");
+        require(_marketPriceFeed != address(0), "MarketLogic: marketPriceFeed is zero address");
         marketPriceFeed = _marketPriceFeed;
         emit UpdateMarketPriceFeed(_marketPriceFeed);
     }
@@ -80,8 +82,8 @@ contract MarketLogic is IMarketLogic {
         iParams.marketConfig = IMarket(msg.sender).getMarketConfig();
         iParams.marketType = IMarket(msg.sender).marketType();
         iParams.pool = IMarket(msg.sender).pool();
-        iParams.positionMode = IMarket(msg.sender).positionModes(order.taker);
         order = IMarket(msg.sender).getOrder(id);
+        iParams.positionMode = IMarket(msg.sender).positionModes(order.taker);
         position = IMarket(msg.sender).getPosition(positionId);
 
         if (order.id == 0 || order.status != MarketDataStructure.OrderStatus.Open) return (order, position, response, 2);

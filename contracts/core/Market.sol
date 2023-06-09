@@ -6,7 +6,8 @@ import "../libraries/SafeMath.sol";
 import "../libraries/ReentrancyGuard.sol";
 import "../libraries/SafeCast.sol";
 import "../libraries/SignedSafeMath.sol";
-import "../interfaces/IERC20.sol";
+import "../libraries/TransferHelper.sol";
+//import "../interfaces/IERC20.sol";
 import "./MarketStorage.sol";
 import "../interfaces/IMarketLogic.sol";
 import "../interfaces/IManager.sol";
@@ -59,7 +60,7 @@ contract Market is MarketStorage, ReentrancyGuard {
     }
 
     modifier whenUpdateMarginPaused() {
-        require(!marketConfig.updateMarginPaused, "Market:Set price paused");
+        require(!marketConfig.updateMarginPaused, "Market: Update margin pause");
         _;
     }
 
@@ -69,7 +70,7 @@ contract Market is MarketStorage, ReentrancyGuard {
     /// @param _pool pool address
     /// @param _marketType market type: {0: linear, 1: inverse, 2: quanto}
     function initialize(string memory _token, address _marginAsset, address _pool, uint8 _marketType) external {
-        require(msg.sender == manager, "Market: Must be manager");
+        require(msg.sender == manager && _marginAsset != address(0) && _pool != address(0), "Market: Must be manager or valid address");
         token = _token;
         marginAsset = _marginAsset;
         pool = _pool;
@@ -84,9 +85,9 @@ contract Market is MarketStorage, ReentrancyGuard {
         address _marketLogic,
         address _fundingLogic
     ) external onlyController {
-        require(_marketLogic != address(0), "Market: invalid market logic contract address");
+        require(_marketLogic != address(0), "Market: invalid address");
         if (fundingLogic != address(0)) {
-            require(_fundingLogic != address(0), "Market: invalid funding logic contract address");
+            require(_fundingLogic != address(0), "Market: invalid address");
         }
         marketLogic = _marketLogic;
         fundingLogic = _fundingLogic;
@@ -96,7 +97,6 @@ contract Market is MarketStorage, ReentrancyGuard {
     /// @notice set general market configurations, only controller can call
     /// @param _config configuration parameters
     function setMarketConfig(MarketDataStructure.MarketConfig memory _config) external onlyManager {
-        IMarketLogic(marketLogic).checkoutConfig(_config);
         marketConfig = _config;
         emit SetMarketConfig(marketConfig);
     }
@@ -195,7 +195,8 @@ contract Market is MarketStorage, ReentrancyGuard {
         }
 
         params.order.code = params.code;
-        if (params.order.freezeMargin > 0) IERC20(marginAsset).transfer(IManager(manager).vault(), params.order.freezeMargin);
+//        if (params.order.freezeMargin > 0) TransferHelper.safeTransfer(marginAsset,IManager(manager).vault(), params.order.freezeMargin);
+        if (params.order.freezeMargin > 0) _transfer(IManager(manager).vault(), params.order.freezeMargin);
 
         takerOrderNum[params.order.taker][params.order.orderType]--;
         _setTakerOrderTotalValue(params.order.taker, params.order.orderType, params.order.direction, params.order.freezeMargin.mul(params.order.takerLeverage).toInt256().neg256());
@@ -310,7 +311,7 @@ contract Market is MarketStorage, ReentrancyGuard {
     function liquidate(uint256 _id, MarketDataStructure.OrderType action) public nonReentrant onlyRouter returns (uint256) {
         LiquidateInternalParams memory params;
         MarketDataStructure.Position storage position = takerPositions[_id];
-        require(position.amount > 0, "Market:order not exist");
+        require(position.amount > 0, "Market: position does not exist");
 
         //create liquidate order
         MarketDataStructure.Order storage order = orders[_createOrder(MarketDataStructure.CreateInternalParams(position.taker, position.id, 0, 0, 0, position.amount, position.takerLeverage, position.direction.neg256().toInt8(), 0, 0, 1, true, position.isETH))];
@@ -435,7 +436,8 @@ contract Market is MarketStorage, ReentrancyGuard {
         //reduce taker order count
         takerOrderNum[order.taker][order.orderType]--;
         _setTakerOrderTotalValue(order.taker, order.orderType, order.direction, order.freezeMargin.mul(order.takerLeverage).toInt256().neg256());
-        if (order.freezeMargin > 0) IERC20(marginAsset).transfer(msg.sender, order.freezeMargin);
+//        if (order.freezeMargin > 0)TransferHelper.safeTransfer(marginAsset,msg.sender, order.freezeMargin);
+        if (order.freezeMargin > 0) _transfer(msg.sender, order.freezeMargin);
     }
 
     function _setTakerOrderTotalValue(address _taker, MarketDataStructure.OrderType orderType, int8 _direction, int256 _value) internal {
@@ -473,6 +475,10 @@ contract Market is MarketStorage, ReentrancyGuard {
         //update taker margin in pool
         IPool(pool).takerUpdateMargin(address(this), position.taker, _deltaMargin, position.isETH);
         emit UpdateMargin(_id, _deltaMargin);
+    }
+
+    function _transfer(address to, uint256 amount) internal {
+        TransferHelper.safeTransfer(marginAsset, to, amount);
     }
 
     function isOpenOrder(MarketDataStructure.OrderType orderType) internal pure returns (bool) {

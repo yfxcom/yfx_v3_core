@@ -39,7 +39,7 @@ contract Router {
     event TakerOpen(address market, uint256 id);
     event Open(address market, uint256 id, uint256 orderid);
     event TakerClose(address market, uint256 id);
-    event Liquidate(address market, uint256 id, uint256 orderid);
+    event Liquidate(address market, uint256 id, uint256 orderid, address liquidator);
     event TakeProfit(address market, uint256 id, uint256 orderid);
     event Cancel(address market, uint256 id);
     event ChangeStatus(address market, uint256 id);
@@ -134,10 +134,10 @@ contract Router {
     /// @return id order id
     function takerOpen(TakerOpenParams memory params) external payable ensure(params.deadline) validateMarket(params._market) returns (uint256 id) {
         address marginAsset = getMarketMarginAsset(params._market);
-        uint256 executeOrderFee = getExecuteOrderFee(params._market);
+        uint256 executeOrderFee = getExecuteOrderFee();
         require(IERC20(marginAsset).balanceOf(msg.sender) >= params.margin, "Router: insufficient balance");
         require(IERC20(marginAsset).allowance(msg.sender, address(this)) >= params.margin, "Router: insufficient allowance");
-        require(msg.value >= executeOrderFee, "Router: insufficient execution fee");
+        require(msg.value == executeOrderFee, "Router: inaccurate msg.value");
 
         TransferHelper.safeTransferFrom(marginAsset, msg.sender, params._market, params.margin);
         id = _takerOpen(params, false);
@@ -151,11 +151,11 @@ contract Router {
         /// @notice important can not remove
         require(marginAsset == WETH, "Router: margin asset of this market is not WETH");
 
-        uint256 executeOrderFee = getExecuteOrderFee(params._market);
-        require(msg.value >= params.margin.add(executeOrderFee), "Router: insufficient value");
+        uint256 executeOrderFee = getExecuteOrderFee();
+        require(msg.value == params.margin.add(executeOrderFee), "Router: inaccurate value");
 
-        IWrappedCoin(WETH).deposit{value: msg.value.sub(executeOrderFee)}();
-        TransferHelper.safeTransfer(WETH, params._market, msg.value.sub(executeOrderFee));
+        IWrappedCoin(WETH).deposit{value: params.margin}();
+        TransferHelper.safeTransfer(WETH, params._market, params.margin);
 
         id = _takerOpen(params, true);
     }
@@ -189,8 +189,8 @@ contract Router {
     /// @return id order id
     function takerClose(TakerCloseParams memory params) external payable ensure(params.deadline) validateMarket(params._market) whenNotPaused returns (uint256 id){
         require(params.minPrice <= params.maxPrice, "Router: slippage price error");
-        uint256 executeOrderFee = getExecuteOrderFee(params._market);
-        require(msg.value >= executeOrderFee, "Router: insufficient execution fee");
+        uint256 executeOrderFee = getExecuteOrderFee();
+        require(msg.value == executeOrderFee, "Router: insufficient execution fee");
 
         setReferralCode(params.inviterCode);
 
@@ -294,7 +294,16 @@ contract Router {
         if (MarketDataStructure.OrderType.Liquidate == action) {
             IRiskFunding(riskFunding).updateLiquidatorExecutedFee(msg.sender);
         }
-        emit Liquidate(_market, id, orderId);
+        emit Liquidate(_market, id, orderId, msg.sender);
+    }
+
+    /// @notice execute position liquidation
+    /// @param _market  market contract address
+    /// @param id   position id
+    function liquidateByCommunity(address _market, uint256 id) external validateMarket(_market) {
+        uint256 orderId = IMarket(_market).liquidate(id, MarketDataStructure.OrderType.Liquidate);
+        IRiskFunding(riskFunding).updateLiquidatorExecutedFee(msg.sender);
+        emit Liquidate(_market, id, orderId, msg.sender);
     }
 
     /// @notice  increase margin to a position, margined by ETH
@@ -412,7 +421,7 @@ contract Router {
     function addLiquidityETH(address _pool, uint256 _amount, bool isStakeLp, uint256 _deadline) external payable ensure(_deadline) validatePool(_pool) returns (bool result, uint256 id){
         address baseAsset = IPool(_pool).getBaseAsset();
         require(baseAsset == WETH, "Router: baseAsset is not WETH");
-        require(msg.value >= _amount, "Router: insufficient balance");
+        require(msg.value == _amount, "Router: inaccurate balance");
         IWrappedCoin(WETH).deposit{value: msg.value}();
         TransferHelper.safeTransfer(WETH, IManager(manager).vault(), msg.value);
         (uint256 _id) = IPool(_pool).addLiquidity(msg.sender, _amount);
@@ -446,7 +455,7 @@ contract Router {
     /// @param _pool pool address
     /// @param _id liquidity order id
     function _executeLiquidityOrder(address _pool, uint256 _id, bool isETH, bool isStake) internal {
-        IPool(_pool).updateBorrowIG();
+        //IPool(_pool).updateBorrowIG();
         PoolDataStructure.MakerOrder memory order = IPool(_pool).getOrder(_id);
         if (order.action == PoolDataStructure.PoolAction.Deposit) {
             (uint256 liquidity) = IPool(_pool).executeAddLiquidityOrder(_id);
@@ -474,7 +483,7 @@ contract Router {
             }
         }
 
-        (uint256 _id, , uint256 _value) = IPool(_pool).removeLiquidity(msg.sender, _liquidity);
+        (uint256 _id, uint256 _value) = IPool(_pool).removeLiquidity(msg.sender, _liquidity);
         result = true;
         id = _id;
         emit RemoveLiquidity(_id, _pool, _value);
@@ -499,7 +508,7 @@ contract Router {
             }
         }
 
-        (uint256 _id, , uint256 _value) = IPool(_pool).removeLiquidity(msg.sender, _liquidity);
+        (uint256 _id, uint256 _value) = IPool(_pool).removeLiquidity(msg.sender, _liquidity);
         result = true;
         id = _id;
         emit RemoveLiquidity(_id, _pool, _value);
@@ -544,8 +553,7 @@ contract Router {
     }
 
     /// @notice get the configured execution fee of an order
-    /// @param _market market address
-    function getExecuteOrderFee(address _market) internal view returns (uint256){
+    function getExecuteOrderFee() internal view returns (uint256){
         return IManager(manager).executeOrderFee();
     }
 
