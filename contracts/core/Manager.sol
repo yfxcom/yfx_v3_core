@@ -5,6 +5,7 @@ pragma abicoder v2;
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 import "../interfaces/IMarket.sol";
 import "../interfaces/IPool.sol";
+import "../interfaces/IMarketLogic.sol";
 
 contract Manager {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -136,9 +137,8 @@ contract Manager {
 
     /// @notice modify controller address
     /// @param _controller controller address
-    function modifyController(address _controller) external {
+    function modifyController(address _controller) external onlyController{
         require(_controller != address(0), "Manager:address zero");
-        require(msg.sender == controller, "Manager:only controller");
         controller = _controller;
         emit ControllerModified(_controller);
     }
@@ -182,25 +182,22 @@ contract Manager {
 
     /// @notice modify vault address
     /// @param _vault vault address
-    function modifyVault(address _vault) external {
+    function modifyVault(address _vault) external onlyController{
         require(_vault != address(0), "Manager:address zero");
-        require(msg.sender == controller, "Manager:only controller");
         vault = _vault;
         emit VaultModified(_vault);
     }
 
     /// @notice modify price provider fee
     /// @param _fee price provider fee
-    function modifyExecuteOrderFee(uint256 _fee) external {
-        require(msg.sender == controller, "Manager:only controller");
+    function modifyExecuteOrderFee(uint256 _fee) external onlyController{
         executeOrderFee = _fee;
         emit ExecuteOrderFeeModified(_fee);
     }
 
     /// @notice modify invite manager address
     /// @param _inviteManager invite manager address
-    function modifyInviteManager(address _inviteManager) external {
-        require(msg.sender == controller, "Manager:only controller");
+    function modifyInviteManager(address _inviteManager) external onlyController{
         inviteManager = _inviteManager;
         emit InviteManagerModified(_inviteManager);
     }
@@ -272,13 +269,11 @@ contract Manager {
     /// @param pool pool address
     /// @param market market address
     /// @param token save price key
-    /// @param asset market margin asset
     /// @param marketType market type
     function createPair(
         address pool,
         address market,
         string memory token,
-        address asset,
         uint8 marketType,
         MarketDataStructure.MarketConfig memory _config
     ) external onlyController {
@@ -288,9 +283,13 @@ contract Manager {
         require(getMakerByMarket[market] == address(0), 'Manager:maker already exist');
 
         getMakerByMarket[market] = pool;
+        address asset = IPool(pool).getBaseAsset();
+        if(getPoolBaseAsset[pool] == address(0)){
+            getPoolBaseAsset[pool] = asset;
+        }
+        require(getPoolBaseAsset[pool] == asset, 'Manager:pool base asset error');
         getMarketMarginAsset[market] = asset;
-        getPoolBaseAsset[pool] = asset;
-
+        
         EnumerableSet.add(markets, market);
         if (!EnumerableSet.contains(pools, pool)) {
             EnumerableSet.add(pools, pool);
@@ -310,6 +309,7 @@ contract Manager {
     }
 
     function _setMarketConfigInternal(address market, MarketDataStructure.MarketConfig memory _config) internal {
+        IMarketLogic(IMarket(market).marketLogic()).checkoutConfig(_config);
         IMarket(market).setMarketConfig(_config);
     }
 

@@ -46,7 +46,6 @@ contract InviteManager {
     event SetCodeOwner(address account, address newAccount, bytes32 code);
     event SetTier(uint256 tierId, uint256 totalRebate, uint256 discountShare, uint256 upgradeTradeAmount);
     event SetReferrerTier(bytes32 code, uint256 tierId);
-    event SetReferrerDiscountShare(address referrer, uint256 discountShare);
     event ClaimInviteToken(address account, uint256 amount);
     event ClaimTradeToken(address account, uint256 amount);
     event AddTradeTokenBalance(address account, uint256 amount);
@@ -59,6 +58,7 @@ contract InviteManager {
     event IsURPPausedSettled(bool isURPPaused);
 
     constructor(address _manager) {
+        require(_manager != address(0), "InviteManager: manager is zero address");
         manager = _manager;
     }
 
@@ -93,17 +93,20 @@ contract InviteManager {
     }
 
     function setUpgradeToken(address _token) external onlyController {
+        require(_token != address(0), "InviteManager: upgradeToken is zero address");
         upgradeToken = _token;
         emit SetUpgradeToken(_token);
     }
 
     function setTradeToken(address _tradeToken) external onlyController {
+        require(_tradeToken != address(0), "InviteManager: tradeToken is zero address");
         tradeToken = _tradeToken;
         tradeTokenDecimals = IERC20(_tradeToken).decimals();
         emit SetTradeToken(_tradeToken, tradeTokenDecimals);
     }
 
     function setInviteToken(address _inviteToken) external onlyController {
+        require(_inviteToken != address(0), "InviteManager: inviteToken is zero address");
         inviteToken = _inviteToken;
         inviteTokenDecimals = IERC20(_inviteToken).decimals();
         emit SetInviteToken(_inviteToken, inviteTokenDecimals);

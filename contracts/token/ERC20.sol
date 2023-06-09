@@ -67,9 +67,10 @@ contract ERC20 {
 
     function _transfer(address from, address to, uint256 value) internal {
         require(from != address(0), "ERC20: _transfer from the zero address");
+        require(to != address(0), "ERC20: _transfer to the zero address");
 
         if (inPrivateTransferMode) {
-            require(isHandler[msg.sender], "BaseToken: msg.sender not whitelisted");
+            require(isHandler[msg.sender], "ERC20: msg.sender not whitelisted");
         }
 
         balanceOf[from] = balanceOf[from].sub(value);
@@ -89,6 +90,7 @@ contract ERC20 {
 
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
         require(from != address(0), "ERC20: transferFrom from the zero address");
+        require(to != address(0), "ERC20: transferFrom to the zero address");
         if (isHandler[msg.sender]) {
             _transfer(from, to, value);
             return true;

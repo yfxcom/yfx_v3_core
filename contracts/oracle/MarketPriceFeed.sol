@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 
 import "@chainlink/contracts/src/v0.7/interfaces/AggregatorV2V3Interface.sol";
 import "../libraries/SafeMath.sol";
+import "../libraries/SafeCast.sol";
 import "../interfaces/IChainlinkFlags.sol";
 import "../interfaces/IManager.sol";
 import "../interfaces/ISecondaryPriceFeed.sol";
@@ -10,6 +11,7 @@ import "../interfaces/IPriceHelper.sol";
 
 contract MarketPriceFeed {
     using SafeMath for uint256;
+    using SafeCast for uint256;
 
     //uint256 public constant PRICE_DECIMAL = 10;
     uint256 public constant PRICE_PRECISION = 10 ** 10;//price decimal 1e10
@@ -55,6 +57,7 @@ contract MarketPriceFeed {
     event SetTokenConfig(string _token, address _priceFeed, uint256 _priceDecimals, bool _isStrictStable);
 
     constructor(address _manager) {
+        require(_manager != address(0), "MarketPriceFeed: _manager is zero address");
         manager = _manager;
     }
 
@@ -64,6 +67,7 @@ contract MarketPriceFeed {
     }
 
     function setChainlinkFlags(address _chainlinkFlags) external onlyController {
+        require(_chainlinkFlags != address(0), "MarketPriceFeed: _chainlinkFlags is zero address");
         chainlinkFlags = _chainlinkFlags;
         emit SetChainlinkFlags(_chainlinkFlags);
     }
@@ -91,6 +95,7 @@ contract MarketPriceFeed {
     }
 
     function setSecondaryPriceFeed(address _secondaryPriceFeed) external onlyController {
+        require(_secondaryPriceFeed != address(0), "MarketPriceFeed: _secondaryPriceFeed is zero address");
         secondaryPriceFeed = _secondaryPriceFeed;
         emit SetSecondaryPriceFeed(_secondaryPriceFeed);
     }
@@ -206,7 +211,7 @@ contract MarketPriceFeed {
                 require(_p > 0, "MarketPriceFeed: invalid price");
                 p = uint256(_p);
             } else {
-                (, int256 _p, , ,) = priceFeed.getRoundData(uint80(roundId - i));
+                (, int256 _p, , ,) = priceFeed.getRoundData((roundId - i).toUint80());
                 require(_p > 0, "MarketPriceFeed: invalid price");
                 p = uint256(_p);
             }

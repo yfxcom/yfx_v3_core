@@ -32,6 +32,7 @@ contract FundingLogic is IFundingLogic {
     event UpdateMarketPriceFeed(address priceFeed);
 
     constructor(address _manager, int256 _maxFundingRate){
+        require(_manager != address(0), "FundingLogic: invalid manager");
         manager = _manager;
         maxFundingRate = _maxFundingRate;
     }

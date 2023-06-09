@@ -40,7 +40,6 @@ contract MarketStorage {
     uint256 public lastFrX96Ts;//lastFrX96Ts
     uint256 public lastExecutedOrderId;
 
-    event SetPaused(bool _open, bool _set, bool _openTrigger);
     event Initialize(string indexToken, address _clearAnchor, address _pool, uint8 _marketType);
     event LogicAddressesModified(address _marketLogic, address _fundingLogic);
     event SetMarketConfig(MarketDataStructure.MarketConfig _marketConfig);

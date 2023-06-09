@@ -100,7 +100,7 @@ interface IPool {
 
     function executeAddLiquidityOrder(uint256 id) external returns (uint256 liquidity);
 
-    function removeLiquidity(address sender, uint256 liquidity) external returns (uint256 _id, address _makerAddress, uint256 _liquidity);
+    function removeLiquidity(address sender, uint256 liquidity) external returns (uint256 _id, uint256 _liquidity);
 
     function executeRmLiquidityOrder(uint256 id, bool isETH) external returns (uint256 amount);
 

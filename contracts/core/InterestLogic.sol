@@ -26,6 +26,7 @@ contract InterestLogic {
     event UpdateRatePerHour(address pool, uint256 rate);
 
     constructor(address _manager){
+        require(_manager != address(0), "InterestLogic: manager is zero address");
         manager = _manager;
     }
 

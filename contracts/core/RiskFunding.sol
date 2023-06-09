@@ -19,6 +19,7 @@ contract RiskFunding {
     event SetExecuteLiquidateFee(uint256 _fee);
 
     constructor(address _manager) {
+        require(_manager != address(0), "RiskFunding: invalid manager");
         manager = _manager;
     }
 
@@ -33,6 +34,7 @@ contract RiskFunding {
     }
 
     function setRewardAsset(address _rewardAsset) external onlyController {
+        require(_rewardAsset != address(0), "RiskFunding: invalid reward asset");
         rewardAsset = _rewardAsset;
         emit SetRewardAsset(_rewardAsset);
     }

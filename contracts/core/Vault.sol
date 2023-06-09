@@ -29,7 +29,6 @@ contract Vault is ReentrancyGuard {
     mapping(address => uint256) public poolRmLpFeeBalances;
     mapping(address => uint256) public exchangeFees; //pool => exchange fee
 
-    event SetManager(address _manager);
     event AddPoolBalance(address _pool, address _token, uint256 _amount);
     event DecreasePoolBalance(address _pool, address _token, uint256 _amount);
     event ReceiveRmLpFee(address _pool, uint256 _feeAmount);
@@ -39,6 +38,7 @@ contract Vault is ReentrancyGuard {
     event CollectExchangeFee(address _token, address _to, uint256 _amount);
 
     constructor(address _manager, address _WETH) {
+        require(_manager != address(0) && _WETH != address(0), "Vault: invalid input address");
         manager = _manager;
         WETH = _WETH;
     }
@@ -150,7 +150,7 @@ contract Vault is ReentrancyGuard {
         } else {
             TransferHelper.safeTransfer(_token, to, _fee);
         }
-        emit CollectExchangeFee(_token, to,_fee);
+        emit CollectExchangeFee(_token, to, _fee);
     }
 
     fallback() external payable {

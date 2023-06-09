@@ -36,12 +36,14 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         require(_baseAsset != address(0), "Pool: invalid clearAnchor");
         require(bytes(_lpTokenName).length != 0, "Pool: invalid lp token name");
         require(bytes(_lpTokenSymbol).length != 0, "Pool: invalid lp token symbol");
+        require(_WETH != address(0) && _manager!= address(0), "Pool: invalid address");
         baseAsset = _baseAsset;
         baseAssetDecimals = IERC20(_baseAsset).decimals();
         name = _lpTokenName;
         symbol = _lpTokenSymbol;
         WETH = _WETH;
         vault = IManager(_manager).vault();
+        sharePrice = PRICE_PRECISION;
         require(vault != address(0), "Pool: invalid vault in manager");
     }
     modifier _onlyMarket(){
@@ -91,7 +93,7 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         balance = balance.add(params.makerFee);
         marketData.cumulativeFee = marketData.cumulativeFee.add(params.makerFee);
         balance = balance.sub(params._makerMargin);
-        interestDate[params._takerDirection].totalBorrowShare = interestDate[params._takerDirection].totalBorrowShare.add(params.deltaDebtShare);
+        interestData[params._takerDirection].totalBorrowShare = interestData[params._takerDirection].totalBorrowShare.add(params.deltaDebtShare);
         if (params._takerDirection == 1) {
             marketData.longMakerFreeze = marketData.longMakerFreeze.add(params._makerMargin);
             marketData.longAmount = marketData.longAmount.add(params._amount);
@@ -104,7 +106,7 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
 
         _marginToVault(params.marginToVault);
         _feeToExchange(params.feeToExchange);
-        _transfer(params.inviter, params.feeToInviter, baseAsset == WETH ? true : false);
+        _transfer(params.inviter, params.feeToInviter, baseAsset == WETH);
 
         return true;
     }
@@ -125,7 +127,7 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
 
         require(marketData.takerTotalMargin >= params._takerMargin, 'Pool: takerMargin is invalid');
         marketData.takerTotalMargin = marketData.takerTotalMargin.sub(params._takerMargin);
-        interestDate[params._takerDirection].totalBorrowShare = interestDate[params._takerDirection].totalBorrowShare.sub(params.deltaDebtShare);
+        interestData[params._takerDirection].totalBorrowShare = interestData[params._takerDirection].totalBorrowShare.sub(params.deltaDebtShare);
         if (params.fundingPayment != 0) marketData.makerFundingPayment = marketData.makerFundingPayment.sub(params.fundingPayment);
         if (params._takerDirection == 1) {
             marketData.longAmount = marketData.longAmount.sub(params._amount);
@@ -140,7 +142,7 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         _marginToVault(params.marginToVault);
         _feeToExchange(params.feeToExchange);
         _transfer(params.taker, params.toTaker, params.isOutETH);
-        _transfer(params.inviter, params.feeToInviter, baseAsset == WETH ? true : false);
+        _transfer(params.inviter, params.feeToInviter, baseAsset == WETH);
         _transfer(IManager(manager).riskFunding(), params.toRiskFund, params.isOutETH);
         return true;
     }
@@ -223,14 +225,13 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
             poolTotalTmp = calcPoolTotal(balance, allMakerFreeze, totalUnPNL, allMarketPos.makerFundingPayment, poolInterest);
             liquidity = order.amount.mul(totalSupply).div(poolTotalTmp);
         } else {
-            sharePrice = PRICE_PRECISION;
             liquidity = order.amount.mul(10 ** decimals).div(10 ** baseAssetDecimals);
         }
         _mint(order.maker, liquidity);
         balance = balance.add(order.amount);
         poolTotalTmp = poolTotalTmp.add(order.amount);
         order.poolTotal = poolTotalTmp.toInt256();
-        sharePrice = calcSharePrice(poolTotalTmp);
+        sharePrice = totalSupply > 0 ? calcSharePrice(poolTotalTmp) : PRICE_PRECISION;
         order.profit = allMarketPos.rlzPNL.add(allMarketPos.cumulativeFee.toInt256()).add(totalUnPNL).add(allMarketPos.makerFundingPayment).add(poolInterest.toInt256());
         order.liquidity = liquidity;
         order.sharePrice = sharePrice;
@@ -243,7 +244,6 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         uint256 liquidity
     ) external nonReentrant _onlyRouter whenNotRemovePaused returns (
         uint256 _id,
-        address _makerAddress,
         uint256 _liquidity
     ){
         require(sender != address(0), "Pool:removeLiquidity sender is zero address");
@@ -270,7 +270,6 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
             PoolDataStructure.PoolActionStatus.Submit
         );
         _id = makerOrders[autoId].id;
-        _makerAddress = address(this);
         _liquidity = makerOrders[autoId].liquidity;
         makerOrderIds[sender].push(autoId);
         autoId = autoId.add(1);
@@ -455,6 +454,7 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
     /// @notice set market price feed contract address
     /// @param _marketPriceFeed contract address
     function setMarketPriceFeed(address _marketPriceFeed) external _onlyController {
+        require(_marketPriceFeed != address(0), "Pool: invalid marketPriceFeed");
         marketPriceFeed = _marketPriceFeed;
         emit SetMarketPriceFeed(_marketPriceFeed);
     }
@@ -508,10 +508,10 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
     /// @param _longMakerFreeze sum of pool assets taken by the long positions
     /// @param _shortMakerFreeze sum of pool assets taken by the short positions
     function _updateBorrowIG(uint256 _longMakerFreeze, uint256 _shortMakerFreeze) internal {
-        (, interestDate[1].borrowIG) = _getCurrentBorrowIG(1, _longMakerFreeze, _shortMakerFreeze);
-        (, interestDate[- 1].borrowIG) = _getCurrentBorrowIG(- 1, _longMakerFreeze, _shortMakerFreeze);
-        interestDate[1].lastInterestUpdateTs = block.timestamp;
-        interestDate[- 1].lastInterestUpdateTs = block.timestamp;
+        (, interestData[1].borrowIG) = _getCurrentBorrowIG(1, _longMakerFreeze, _shortMakerFreeze);
+        (, interestData[- 1].borrowIG) = _getCurrentBorrowIG(- 1, _longMakerFreeze, _shortMakerFreeze);
+        interestData[1].lastInterestUpdateTs = block.timestamp;
+        interestData[- 1].lastInterestUpdateTs = block.timestamp;
     }
 
     /// @notice get current borrowIG
@@ -527,7 +527,7 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
     /// @param _shortMakerFreeze sum of pool assets taken by the short positions
     function _getCurrentBorrowIG(int8 _direction, uint256 _longMakerFreeze, uint256 _shortMakerFreeze) internal view returns (uint256 _borrowRate, uint256 _borrowIG){
         require(_direction == 1 || _direction == - 1, "invalid direction");
-        IPool.InterestData memory data = interestDate[_direction];
+        IPool.InterestData memory data = interestData[_direction];
 
         // calc util need usedBalance,totalBalance,reserveRate
         //(DataByMarket memory allMarketPos, uint256 allMakerFreeze) = getAllMarketData();
@@ -542,7 +542,7 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         return _getCurrentAmount(_direction, share, allMarketPos.longMakerFreeze, allMarketPos.shortMakerFreeze);
     }
 
-    function _getCurrentAmount(int8 _direction, uint256 share, uint256 _longMakerFreeze, uint256 _shortMakerFreeze) public view returns (uint256){
+    function _getCurrentAmount(int8 _direction, uint256 share, uint256 _longMakerFreeze, uint256 _shortMakerFreeze) internal view returns (uint256){
         (,uint256 ig) = _getCurrentBorrowIG(_direction, _longMakerFreeze, _shortMakerFreeze);
         return IInterestLogic(interestLogic).getBorrowAmount(share, ig).mul(10 ** baseAssetDecimals).div(AMOUNT_PRECISION);
     }
@@ -596,8 +596,8 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
     /// @return result the interest principal not included
     function getPooInterest(uint256 _longMakerFreeze, uint256 _shortMakerFreeze) internal view returns (uint256){
         //(DataByMarket memory allMarketPos,) = getAllMarketData();
-        uint256 longShare = interestDate[1].totalBorrowShare;
-        uint256 shortShare = interestDate[- 1].totalBorrowShare;
+        uint256 longShare = interestData[1].totalBorrowShare;
+        uint256 shortShare = interestData[- 1].totalBorrowShare;
         uint256 longInterest = _getCurrentAmount(1, longShare, _longMakerFreeze, _shortMakerFreeze).sub(_longMakerFreeze);
         uint256 shortInterest = _getCurrentAmount(- 1, shortShare, _longMakerFreeze, _shortMakerFreeze).sub(_shortMakerFreeze);
         return longInterest.add(shortInterest);

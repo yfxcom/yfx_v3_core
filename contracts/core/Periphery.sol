@@ -213,7 +213,7 @@ contract Periphery {
             (PoolStorage.DataByMarket memory allMarketPos, uint256 allMakerFreeze) = IPool(_pool).getAllMarketData();
             int256 totalUnPNL = IPool(_pool).makerProfitForLiquidity(false);
             if (totalUnPNL <= int256(allMarketPos.takerTotalMargin) && totalUnPNL * (- 1) <= int256(allMakerFreeze)) {
-                uint256 amount = _liquidity.mul(uint256(int256(allMakerFreeze).add(int256(balance)).add(totalUnPNL).add(allMarketPos.makerFundingPayment))).div(totalSupply);
+                uint256 amount = _liquidity.mul(allMakerFreeze.toInt256().add(balance.toInt256()).add(totalUnPNL).add(allMarketPos.makerFundingPayment).toUint256()).div(totalSupply);
                 if (balance >= amount) {
                     return true;
                 }
