@@ -31,7 +31,6 @@ contract FastPriceFeed {
     mapping(string => uint32) lastUpdatedAts;//last offChain price update time
     uint256 public lastUpdatedBlock;//last offChain price update block
     mapping(string => uint256) public maxCumulativeDeltaDiffs;//max cumulative delta diff,delta = (cumulativeFastDelta - cumulativeRefDelta)
-    mapping(address => bool) public disableFastPriceVotes;//disable offChain price vote
 
     // should be 10 ** 8
     uint256[] public tokenPrecisions;//offChain price decimals
@@ -53,13 +52,9 @@ contract FastPriceFeed {
     uint256 public minBlockInterval; //min block interval between two offChain price update
     uint256 public maxTimeDeviation = 3600;//max time deviation between offChain price update time and block timestamp
     uint256 public priceDataInterval = 60;//cumulative delta interval
-    uint256 public minAuthorizations = 1;//min disableFastPriceVotes
-    uint256 public disableFastPriceVoteCount = 0;//disableFastPriceVotes count
     bool public isSpreadEnabled = false;//is spread enabled
     address public manager;
-
-    event DisableFastPrice(address signer);
-    event EnableFastPrice(address signer);
+    
     event PriceData(string token, uint256 refPrice, uint256 fastPrice, uint256 cumulativeRefDelta, uint256 cumulativeFastDelta);
     event MaxCumulativeDeltaDiffExceeded(string token, uint256 refPrice, uint256 fastPrice, uint256 cumulativeRefDelta, uint256 cumulativeFastDelta);
     event PriceUpdated(string _token, uint256 _price);
@@ -72,7 +67,6 @@ contract FastPriceFeed {
     event SetSpreadBasisPointsIfInactive(uint256 _spreadBasisPointsIfInactive);
     event SetSpreadBasisPointsIfChainError(uint256 _spreadBasisPointsIfChainError);
     event SetPriceDataInterval(uint256 _priceDataInterval);
-    event SetMinAuthorizations(uint256 _minAuthorizations);
     event SetIsSpreadEnabled(bool _isSpreadEnabled);
     event SetTokens(string[] _tokens, uint256[] _tokenPrecisions);
     event SetLastUpdatedAt(string token, uint256 lastUpdatedAt);
@@ -177,32 +171,11 @@ contract FastPriceFeed {
         emit SetPriceDataInterval(_priceDataInterval);
     }
 
-    function setMinAuthorizations(uint256 _minAuthorizations) external onlyController {
-        minAuthorizations = _minAuthorizations;
-        emit SetMinAuthorizations(_minAuthorizations);
-    }
-
     function setTokens(string[] memory _tokens, uint256[] memory _tokenPrecisions) external onlyController {
         require(_tokens.length == _tokenPrecisions.length, "FastPriceFeed: invalid lengths");
         tokens = _tokens;
         tokenPrecisions = _tokenPrecisions;
         emit SetTokens(_tokens, _tokenPrecisions);
-    }
-
-    function disableFastPrice() external onlyController {
-        require(!disableFastPriceVotes[msg.sender], "FastPriceFeed: already voted");
-        disableFastPriceVotes[msg.sender] = true;
-        disableFastPriceVoteCount = disableFastPriceVoteCount.add(1);
-
-        emit DisableFastPrice(msg.sender);
-    }
-
-    function enableFastPrice() external onlyController {
-        require(disableFastPriceVotes[msg.sender], "FastPriceFeed: already enabled");
-        disableFastPriceVotes[msg.sender] = false;
-        disableFastPriceVoteCount = disableFastPriceVoteCount.sub(1);
-
-        emit EnableFastPrice(msg.sender);
     }
 
     function setPrices(string[] memory _tokens, uint128[] memory _prices, uint32[] memory _timestamps) external onlyRouter {
@@ -271,10 +244,6 @@ contract FastPriceFeed {
 
     function favorFastPrice(string memory _token) public view returns (bool) {
         if (isSpreadEnabled) {
-            return false;
-        }
-        if (disableFastPriceVoteCount >= minAuthorizations) {
-            // force a spread if watchers have flagged an issue with the fast price
             return false;
         }
 

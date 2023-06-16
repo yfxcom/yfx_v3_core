@@ -55,8 +55,8 @@ contract PoolStorage {
     struct DataByMarket {
         int256 rlzPNL;                                          // realized profit and loss
         uint256 cumulativeFee;                                  // cumulative trade fee for pool
-        uint256 longMakerFreeze;                                // short margin freeze
-        uint256 shortMakerFreeze;                               // long margin freeze
+        uint256 longMakerFreeze;                                // user total long margin freeze, that is the pool short margin freeze
+        uint256 shortMakerFreeze;                               // user total short margin freeze, that is pool long margin freeze
         uint256 takerTotalMargin;                               // all taker's margin
         int256 makerFundingPayment;                             // pending fundingPayment
         uint256 longAmount;                                     // sum asset for long pos
