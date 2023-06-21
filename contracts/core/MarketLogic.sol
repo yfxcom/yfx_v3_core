@@ -605,8 +605,8 @@ contract MarketLogic is IMarketLogic {
         require(_config.makerFeeRate < RATE_PRECISION, "MarketLogic:fee percent error");
         require(_config.tradeFeeRate < RATE_PRECISION, "MarketLogic:feeRate more than one");
         require(marketType == 2 ? _config.multiplier > 0 : true, "MarketLogic:ratio error");
-        require(_config.mm > 0 && _config.mm < RATE_PRECISION, "MarketLogic:mm error");
         require(_config.takerLeverageMin > 0 && _config.takerLeverageMin < _config.takerLeverageMax, "MarketLogic:leverage error");
+        require(_config.mm > 0 && _config.mm < RATE_PRECISION.div(_config.takerLeverageMax), "MarketLogic:mm error");
         require(_config.takerMarginMin > 0 && _config.takerMarginMin < _config.takerMarginMax, "MarketLogic:margin error");
         require(_config.takerValueMin > 0 && _config.takerValueMin < _config.takerValueMax, "MarketLogic:value error");
     }

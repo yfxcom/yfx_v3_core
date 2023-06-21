@@ -377,7 +377,6 @@ contract Market is MarketStorage, ReentrancyGuard {
 
         //update position info
         position.amount = 0;
-        position.frLastX96 = fundingGrowthGlobalX96;
         position.makerMargin = 0;
         position.takerMargin = 0;
         position.value = 0;

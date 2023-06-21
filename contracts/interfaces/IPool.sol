@@ -119,8 +119,6 @@ interface IPool {
 
     function getCurrentBorrowIG(int8 _direction) external view returns (uint256 _borrowRate, uint256 _borrowIG);
 
-    function interestDate(int8) external view returns (InterestData memory);
-
     function getCurrentAmount(int8 _direction, uint256 share) external view returns (uint256);
 
     function getCurrentShare(int8 _direction, uint256 amount) external view returns (uint256);
