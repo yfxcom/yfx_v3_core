@@ -611,7 +611,8 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
     /// @return openLimitFunds the max funds used to open
     function getMarketLimit(address _market, uint256 _allMakerFreeze) internal view returns (uint256 openLimitFunds){
         MarketConfig memory args = marketConfigs[_market];
-        uint256 openLimitByRatio = balance.add(_allMakerFreeze).mul(args.fundUtRateLimit).div(RATE_PRECISION);
+        uint256 availableAmount = balance.add(_allMakerFreeze).mul(RATE_PRECISION.sub(reserveRate)).div(RATE_PRECISION);
+        uint256 openLimitByRatio = availableAmount.mul(args.fundUtRateLimit).div(RATE_PRECISION);
         openLimitFunds = openLimitByRatio > args.openLimit ? args.openLimit : openLimitByRatio;
     }
 
