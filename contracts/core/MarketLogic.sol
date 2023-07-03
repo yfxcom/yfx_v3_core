@@ -599,9 +599,10 @@ contract MarketLogic is IMarketLogic {
     }
 
     /// @notice validate market config params
+    /// @param market market address
     /// @param _config market config
-    function checkoutConfig(MarketDataStructure.MarketConfig memory _config) external view override {
-        uint256 marketType = IMarket(msg.sender).marketType();
+    function checkoutConfig(address market, MarketDataStructure.MarketConfig memory _config) external view override {
+        uint256 marketType = IMarket(market).marketType();
         require(_config.makerFeeRate < RATE_PRECISION, "MarketLogic:fee percent error");
         require(_config.tradeFeeRate < RATE_PRECISION, "MarketLogic:feeRate more than one");
         require(marketType == 2 ? _config.multiplier > 0 : true, "MarketLogic:ratio error");

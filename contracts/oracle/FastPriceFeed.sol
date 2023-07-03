@@ -93,7 +93,7 @@ contract FastPriceFeed {
     ) {
         require(_priceDuration <= MAX_PRICE_DURATION, "FastPriceFeed: invalid _priceDuration");
         require(_indexPriceDuration <= MAX_PRICE_DURATION, "FastPriceFeed: invalid _indexPriceDuration");
-        require(manager != address(0), "FastPriceFeed: invalid manager");
+        require(_manager != address(0), "FastPriceFeed: invalid manager");
         manager = _manager;
         priceDuration = _priceDuration;
         maxPriceUpdateDelay = _maxPriceUpdateDelay;

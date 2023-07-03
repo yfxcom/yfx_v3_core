@@ -41,5 +41,5 @@ interface IMarketLogic {
 
     function checkSwitchMode(address _market, address _taker, MarketDataStructure.PositionMode _mode) external view;
 
-    function checkoutConfig(MarketDataStructure.MarketConfig memory _config) external view;
+    function checkoutConfig(address market, MarketDataStructure.MarketConfig memory _config) external view;
 }

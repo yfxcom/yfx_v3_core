@@ -294,10 +294,10 @@ contract Manager {
         if (!EnumerableSet.contains(pools, pool)) {
             EnumerableSet.add(pools, pool);
         }
-
-        _setMarketConfigInternal(market, _config);
         IMarket(market).initialize(token, asset, pool, marketType);
         IPool(pool).registerMarket(market);
+        
+        _setMarketConfigInternal(market, _config);
 
         emit MarketCreated(market, pool, token, asset, marketType);
     }
@@ -309,7 +309,7 @@ contract Manager {
     }
 
     function _setMarketConfigInternal(address market, MarketDataStructure.MarketConfig memory _config) internal {
-        IMarketLogic(IMarket(market).marketLogic()).checkoutConfig(_config);
+        IMarketLogic(IMarket(market).marketLogic()).checkoutConfig(market, _config);
         IMarket(market).setMarketConfig(_config);
     }
 
