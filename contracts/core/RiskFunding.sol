@@ -17,6 +17,9 @@ contract RiskFunding {
 
     event SetRewardAsset(address feeAsset);
     event SetExecuteLiquidateFee(uint256 _fee);
+    event UseRiskFunding(address _token, address _to, uint256 _amount);
+    event UpdateLiquidatorExecutedFee(address _liquidator, uint256 _executeLiquidateFee);
+    event CollectExecutedFee(address _liquidator, uint256 _amount);
 
     constructor(address _manager) {
         require(_manager != address(0), "RiskFunding: invalid manager");
@@ -46,16 +49,21 @@ contract RiskFunding {
 
     function updateLiquidatorExecutedFee(address _liquidator) external onlyRouter {
         liquidatorExecutedFees[_liquidator] = liquidatorExecutedFees[_liquidator].add(executeLiquidateFee);
+        emit UpdateLiquidatorExecutedFee(_liquidator, executeLiquidateFee);
     }
 
     function useRiskFunding(address token, address to) external {
         require(IManager(manager).checkTreasurer(msg.sender), "RiskFunding: no permission!");
-        TransferHelper.safeTransfer(token, to, IERC20(token).balanceOf(address(this)));
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        require(balance > 0, "RiskFunding: no balance");
+        TransferHelper.safeTransfer(token, to, balance);
+        emit UseRiskFunding(token, to, balance);
     }
 
     function collectExecutedFee() external {
         require(liquidatorExecutedFees[msg.sender] > 0, "RiskFunding: no fee to collect");
         TransferHelper.safeTransfer(rewardAsset, msg.sender, liquidatorExecutedFees[msg.sender]);
+        emit CollectExecutedFee(msg.sender, liquidatorExecutedFees[msg.sender]);
         liquidatorExecutedFees[msg.sender] = 0;
     }
 }
