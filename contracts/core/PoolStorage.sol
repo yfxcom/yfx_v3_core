@@ -74,5 +74,34 @@ contract PoolStorage {
     event SetPaused(bool addPaused, bool removePaused);
     event SetInterestLogic(address interestLogic);
     event SetMarketPriceFeed(address marketPriceFeed);
-    event PoolSettledFundingPaymentAndInterestInfo(address pool, int256 fundingPayment, uint256 interest);
+    event ExecuteAddLiquidityOrder(uint256 orderId, address maker, uint256 amount, uint256 share, uint256 sharePrice);
+    event ExecuteRmLiquidityOrder(uint256 orderId, address maker, uint256 rmAmount, uint256 rmShare, uint256 sharePrice, uint256 rmFee);
+    event OpenUpdate(
+        uint256 indexed id,
+        address indexed market,
+        address taker,
+        address inviter,
+        uint256 feeToExchange,
+        uint256 feeToMaker,
+        uint256 feeToInviter,
+        uint256 sharePrice,
+        uint256 shortValue,
+        uint256 longValue
+    );
+    event CloseUpdate(
+        uint256 indexed id,
+        address indexed market,
+        address taker,
+        address inviter,
+        uint256 feeToExchange,
+        uint256 feeToMaker,
+        uint256 feeToInviter,
+        uint256 riskFunding,
+        int256 rlzPnl,
+        int256 fundingPayment,
+        uint256 interestPayment,
+        uint256 sharePrice,
+        uint256 shortValue,
+        uint256 longValue
+    );
 }

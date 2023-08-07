@@ -20,6 +20,7 @@ interface IPool {
     ///         closing process will be executed respectively.
 
     struct OpenUpdateInternalParams {
+        uint256 orderId;
         uint256 _makerMargin;   // pool balance taken by this order
         uint256 _takerMargin;   // taker margin for this order
         uint256 _amount;        // order amount
@@ -35,6 +36,7 @@ interface IPool {
     }
 
     struct CloseUpdateInternalParams {
+        uint256 orderId;
         uint256 _makerMargin;//reduce maker margin，taker margin，amount，value
         uint256 _takerMargin;
         uint256 _amount;

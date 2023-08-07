@@ -108,6 +108,19 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         _feeToExchange(params.feeToExchange);
         _transfer(params.inviter, params.feeToInviter, baseAsset == WETH);
 
+        (uint256 _sharePrice,) = getSharePrice();
+        emit OpenUpdate(
+            params.orderId,
+            _market,
+            params.taker,
+            params.inviter,
+            params.feeToExchange,
+            params.makerFee,
+            params.feeToInviter,
+            _sharePrice,
+            marketData.shortOpenTotal,
+            marketData.longOpenTotal
+        );
         return true;
     }
 
@@ -119,11 +132,12 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         balance = balance.add(params.makerFee);
 
         marketData.rlzPNL = marketData.rlzPNL.add(params._makerProfit);
+        {
+            int256 tempProfit = params._makerProfit.add(params._makerMargin.toInt256()).add(params.fundingPayment);
+            require(tempProfit >= 0, 'Pool: tempProfit is invalid');
 
-        int256 tempProfit = params._makerProfit.add(params._makerMargin.toInt256()).add(params.fundingPayment);
-        require(tempProfit >= 0, 'Pool: tempProfit is invalid');
-
-        balance = tempProfit.add(balance.toInt256()).toUint256().add(params.payInterest);
+            balance = tempProfit.add(balance.toInt256()).toUint256().add(params.payInterest);
+        }
 
         require(marketData.takerTotalMargin >= params._takerMargin, 'Pool: takerMargin is invalid');
         marketData.takerTotalMargin = marketData.takerTotalMargin.sub(params._takerMargin);
@@ -144,9 +158,24 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         _transfer(params.taker, params.toTaker, params.isOutETH);
         _transfer(params.inviter, params.feeToInviter, baseAsset == WETH);
         _transfer(IManager(manager).riskFunding(), params.toRiskFund, false);
-        
-        emit PoolSettledFundingPaymentAndInterestInfo(address(this),params.fundingPayment,params.payInterest);
-        
+
+        (uint256 _sharePrice,) = getSharePrice();
+        emit CloseUpdate(
+            params.orderId,
+            _market,
+            params.taker,
+            params.inviter,
+            params.feeToExchange,
+            params.makerFee,
+            params.feeToInviter,
+            params.toRiskFund,
+            params._makerProfit.neg256(),
+            params.fundingPayment,
+            params.payInterest,
+            _sharePrice,
+            marketData.shortOpenTotal,
+            marketData.longOpenTotal
+        );
         return true;
     }
 
@@ -240,6 +269,8 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         order.sharePrice = sharePrice;
 
         _marginToVault(order.amount);
+        //uint256 orderId, address maker, uint256 amount, uint256 share, uint256 sharePrice
+        emit  ExecuteAddLiquidityOrder(id, order.maker, order.amount, liquidity, order.sharePrice);
     }
 
     function removeLiquidity(
@@ -321,6 +352,8 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         order.sharePrice = sharePrice;
 
         _transfer(order.maker, order.amount, isETH);
+        
+        emit  ExecuteRmLiquidityOrder(id, order.maker, order.amount, order.liquidity, order.sharePrice, order.feeToPool);
     }
 
     /// @notice  calculate unrealized pnl of positions in all markets caused by price changes
@@ -377,7 +410,7 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
     }
 
     /// @notice calculate and return the share price of a pool
-    function getSharePrice() external view returns (
+    function getSharePrice() public view returns (
         uint256 _price,
         uint256 _balance
     ){
@@ -601,8 +634,10 @@ contract Pool is ERC20, PoolStorage, ReentrancyGuard {
         //(DataByMarket memory allMarketPos,) = getAllMarketData();
         uint256 longShare = interestData[1].totalBorrowShare;
         uint256 shortShare = interestData[- 1].totalBorrowShare;
-        uint256 longInterest = _getCurrentAmount(1, longShare, _longMakerFreeze, _shortMakerFreeze).sub(_longMakerFreeze);
-        uint256 shortInterest = _getCurrentAmount(- 1, shortShare, _longMakerFreeze, _shortMakerFreeze).sub(_shortMakerFreeze);
+        uint256 longInterest = _getCurrentAmount(1, longShare, _longMakerFreeze, _shortMakerFreeze);
+        uint256 shortInterest = _getCurrentAmount(- 1, shortShare, _longMakerFreeze, _shortMakerFreeze);
+        longInterest = longInterest <= _longMakerFreeze ? 0 : longInterest.sub(_longMakerFreeze);
+        shortInterest = shortInterest <= _shortMakerFreeze ? 0 : shortInterest.sub(_shortMakerFreeze);
         return longInterest.add(shortInterest);
     }
 

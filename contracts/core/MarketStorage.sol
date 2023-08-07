@@ -44,8 +44,16 @@ contract MarketStorage {
     event LogicAddressesModified(address _marketLogic, address _fundingLogic);
     event SetMarketConfig(MarketDataStructure.MarketConfig _marketConfig);
     event ExecuteOrderError(uint256 _orderId, uint256 _errCode);
-    event ExecuteFeeInfo(uint256 id, bytes32 code, address taker, address inviter, address token, uint256 value, uint256 feeToInviter, uint256 feeToDiscount);
+    event ExecuteInfo(
+        uint256 id, 
+        MarketDataStructure.OrderType orderType,
+        int8 direction,
+        address taker,
+        uint256 tradeValue,
+        uint256 feeToDiscunt,
+        uint256 tradePrice
+    );
     event UpdateMargin(uint256 id, int256 deltaMargin);
     event SwitchPositionMode(address taker, MarketDataStructure.PositionMode mode);
-    event DustPositionClosed(uint256 positionId, uint256 amount, uint256 takerMargin, uint256 makerMargin, uint256 value, int256 fundingPayment, uint256 interestPayment);
+    event DustPositionClosed(address taker, address market, uint256 positionId, uint256 amount, uint256 takerMargin, uint256 makerMargin, uint256 value, int256 fundingPayment, uint256 interestPayment);
 }
